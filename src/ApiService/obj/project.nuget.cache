@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "/W70KGQsL3M=",
+  "dgSpecHash": "KNZXvpweIsQ=",
   "success": true,
   "projectFilePath": "/home/retro1312/observability-lab/src/ApiService/ApiService.csproj",
   "expectedPackageFiles": [
@@ -25,8 +25,10 @@
     "/home/retro1312/.nuget/packages/opentelemetry/1.15.1/opentelemetry.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.api/1.15.1/opentelemetry.api.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.api.providerbuilderextensions/1.15.1/opentelemetry.api.providerbuilderextensions.1.15.1.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/opentelemetry.exporter.opentelemetryprotocol/1.15.1/opentelemetry.exporter.opentelemetryprotocol.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.extensions.hosting/1.15.1/opentelemetry.extensions.hosting.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.instrumentation.aspnetcore/1.15.1/opentelemetry.instrumentation.aspnetcore.1.15.1.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/opentelemetry.instrumentation.http/1.15.0/opentelemetry.instrumentation.http.1.15.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/prometheus-net/8.2.1/prometheus-net.8.2.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/prometheus-net.aspnetcore/8.2.1/prometheus-net.aspnetcore.8.2.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/system.diagnostics.diagnosticsource/10.0.0/system.diagnostics.diagnosticsource.10.0.0.nupkg.sha512"
