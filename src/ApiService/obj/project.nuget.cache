@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "U7qH1ofGQTo=",
+  "success": true,
+  "projectFilePath": "/home/retro1312/observability-lab/src/ApiService/ApiService.csproj",
+  "expectedPackageFiles": [
+    "/home/retro1312/.nuget/packages/microsoft.aspnetcore.openapi/9.0.14/microsoft.aspnetcore.openapi.9.0.14.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
