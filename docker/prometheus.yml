@@ -9,3 +9,7 @@ scrape_configs:
   - job_name: 'apiservice'
     static_configs:
       - targets: ['apiservice:8080']
+
+  - job_name: 'providerservice'
+    static_configs:
+      - targets: ['providerservice:8080']

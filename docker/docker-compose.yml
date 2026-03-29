@@ -6,6 +6,28 @@ services:
       - "5068:8080"
     environment:
       - ASPNETCORE_URLS=http://+:8080
+    depends_on:
+      - providerservice
+
+  providerservice:
+    build:
+      context: ../src/ProviderService
+    ports:
+      - "5069:8080"
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+
+  traffic:
+    image: alpine/curl
+    depends_on:
+      - apiservice
+    entrypoint: sh -c "while true; do
+      curl -s http://apiservice:8080/fast > /dev/null;
+      curl -s http://apiservice:8080/slow > /dev/null;
+      curl -s http://apiservice:8080/error > /dev/null;
+      curl -s http://apiservice:8080/packages > /dev/null;
+      sleep 2;
+      done"
 
   prometheus:
     image: prom/prometheus:latest
@@ -15,6 +37,7 @@ services:
       - "9090:9090"
     depends_on:
       - apiservice
+      - providerservice
 
   grafana:
     image: grafana/grafana:latest
@@ -25,9 +48,3 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
     depends_on:
       - prometheus
-
-  traffic:
-    image: alpine/curl
-    depends_on:
-      - apiservice
-    entrypoint: sh -c "while true; do curl -s http://apiservice:8080/fast > /dev/null; curl -s http://apiservice:8080/slow > /dev/null; curl -s http://apiservice:8080/error > /dev/null; sleep 1; done"
