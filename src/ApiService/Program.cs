@@ -28,14 +28,16 @@ app.MapGet("/error", () => {
 app.MapGet("/packages", async (IHttpClientFactory factory) => {
     var client = factory.CreateClient();
     
-    var fast = await client.GetStringAsync("http://providerservice:8080/availability");
-    var slow = await client.GetStringAsync("http://providerservice:8080/availability/slow");
+    var fastTask = client.GetStringAsync("http://providerservice:8080/availability");
+    var slowTask = client.GetStringAsync("http://providerservice:8080/availability/slow");
     
-    var fastObj = JsonSerializer.Deserialize<object>(fast);
-    var slowObj = JsonSerializer.Deserialize<object>(slow);
+    await Task.WhenAll(fastTask, slowTask);
+    
+    var fastObj = JsonSerializer.Deserialize<object>(fastTask.Result);
+    var slowObj = JsonSerializer.Deserialize<object>(slowTask.Result);
     
     return Results.Json(new { 
-        message = "busqueda completada",
+        message = "busqueda completada en paralelo",
         fast_provider = fastObj,
         slow_provider = slowObj
     });
