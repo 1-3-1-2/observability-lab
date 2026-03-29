@@ -26,8 +26,15 @@ app.UseHttpMetrics();
 app.MapMetrics();
 app.MapControllers();
 
+var degradation = 0;
+
+app.MapGet("/degrade", () => {
+    degradation += 200;
+    return Results.Ok(new { degradation_ms = degradation });
+});
+
 app.MapGet("/availability", async () => {
-    await Task.Delay(Random.Shared.Next(50, 300));
+    await Task.Delay(Random.Shared.Next(50, 300) + degradation);
     return Results.Ok(new { 
         provider = "amadeus",
         available = true,
@@ -36,12 +43,17 @@ app.MapGet("/availability", async () => {
 });
 
 app.MapGet("/availability/slow", async () => {
-    await Task.Delay(Random.Shared.Next(1000, 3000));
+    await Task.Delay(Random.Shared.Next(1000, 3000) + degradation);
     return Results.Ok(new { 
         provider = "slowprovider",
         available = true,
         price = Random.Shared.Next(200, 1500)
     });
+});
+
+app.MapGet("/reset", () => {
+    degradation = 0;
+    return Results.Ok(new { degradation_ms = degradation });
 });
 
 app.Run();
