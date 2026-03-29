@@ -32,13 +32,7 @@ services:
     image: alpine/curl
     depends_on:
       - apiservice
-    entrypoint: sh -c "while true; do
-      curl -s http://apiservice:8080/fast > /dev/null;
-      curl -s http://apiservice:8080/slow > /dev/null;
-      curl -s http://apiservice:8080/error > /dev/null;
-      curl -s http://apiservice:8080/packages > /dev/null;
-      sleep 2;
-      done"
+    entrypoint: sh -c "while true; do curl -s http://apiservice:8080/fast > /dev/null; curl -s http://apiservice:8080/slow > /dev/null; curl -s http://apiservice:8080/error > /dev/null; curl -s http://apiservice:8080/packages > /dev/null; sleep 2; done"
 
   prometheus:
     image: prom/prometheus:latest
@@ -60,6 +54,7 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana-alerts.yml:/etc/grafana/provisioning/alerting/alerts.yml
     depends_on:
       - prometheus
 

@@ -1,0 +1,44 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: latencia
+    folder: observability-lab
+    interval: 1m
+    rules:
+      - uid: latencia-p99-alta
+        title: Latencia p99 alta
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              expression: A
+              type: threshold
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
