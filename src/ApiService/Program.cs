@@ -4,6 +4,7 @@ using System.Text.Json;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RabbitMQ.Client;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -31,8 +32,10 @@ app.MapControllers();
 
 var leak = new List<byte[]>();
 
-// Intentamos conectar a RabbitMQ con reintentos
-// RabbitMQ puede tardar hasta 30s en estar listo dentro de Docker
+// Cadena de conexión a PostgreSQL
+var pgConnection = "Host=postgres;Database=bookings;Username=admin;Password=admin";
+
+// Conexión a RabbitMQ con reintentos
 IConnection? rabbitConnection = null;
 IChannel? rabbitChannel = null;
 
@@ -94,6 +97,8 @@ app.MapGet("/packages", async (IHttpClientFactory factory) => {
     });
 });
 
+// Crea una reserva — responde inmediatamente con un booking_id
+// El procesamiento ocurre en el WorkerService en segundo plano
 app.MapPost("/bookings", async (BookingRequest request) =>
 {
     if (rabbitChannel == null)
@@ -118,6 +123,74 @@ app.MapPost("/bookings", async (BookingRequest request) =>
         status = "processing",
         message = "Reserva recibida, procesando en segundo plano"
     });
+});
+
+// Consulta el estado de una reserva por su ID
+// El cliente puede hacer polling hasta que status sea "completed"
+app.MapGet("/bookings/{id}", async (string id) =>
+{
+    try
+    {
+        await using var conn = new NpgsqlConnection(pgConnection);
+        await conn.OpenAsync();
+
+        await using var cmd = new NpgsqlCommand(
+            "SELECT id, destination, passengers, status, result, created_at FROM bookings WHERE id = @id",
+            conn);
+        cmd.Parameters.AddWithValue("id", id);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+            return Results.NotFound(new { message = $"Booking {id} no encontrado" });
+
+        return Results.Ok(new {
+            booking_id = reader.GetString(0),
+            destination = reader.GetString(1),
+            passengers = reader.GetInt32(2),
+            status = reader.GetString(3),
+            result = reader.IsDBNull(4) ? null : reader.GetString(4),
+            created_at = reader.GetDateTime(5)
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Error consultando BD: {ex.Message}");
+    }
+});
+
+// Lista todas las reservas
+app.MapGet("/bookings", async () =>
+{
+    try
+    {
+        await using var conn = new NpgsqlConnection(pgConnection);
+        await conn.OpenAsync();
+
+        await using var cmd = new NpgsqlCommand(
+            "SELECT id, destination, passengers, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 20",
+            conn);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var bookings = new List<object>();
+
+        while (await reader.ReadAsync())
+        {
+            bookings.Add(new {
+                booking_id = reader.GetString(0),
+                destination = reader.GetString(1),
+                passengers = reader.GetInt32(2),
+                status = reader.GetString(3),
+                created_at = reader.GetDateTime(4)
+            });
+        }
+
+        return Results.Ok(bookings);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Error consultando BD: {ex.Message}");
+    }
 });
 
 app.MapGet("/leak", () => {

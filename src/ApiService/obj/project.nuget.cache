@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "fsT/4fmhOmA=",
+  "dgSpecHash": "351A9dLIjCQ=",
   "success": true,
   "projectFilePath": "/home/retro1312/observability-lab/src/ApiService/ApiService.csproj",
   "expectedPackageFiles": [
@@ -22,6 +22,7 @@
     "/home/retro1312/.nuget/packages/microsoft.extensions.options.configurationextensions/9.0.0/microsoft.extensions.options.configurationextensions.9.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/microsoft.extensions.primitives/9.0.0/microsoft.extensions.primitives.9.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/npgsql/10.0.2/npgsql.10.0.2.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry/1.15.1/opentelemetry.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.api/1.15.1/opentelemetry.api.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.api.providerbuilderextensions/1.15.1/opentelemetry.api.providerbuilderextensions.1.15.1.nupkg.sha512",
