@@ -27,6 +27,8 @@ app.UseHttpMetrics();
 app.MapMetrics();
 app.MapControllers();
 
+var leak = new List<byte[]>();
+
 app.MapGet("/fast", () => Results.Ok(new { message = "respuesta rapida", ms = 10 }));
 
 app.MapGet("/slow", async () => {
@@ -42,20 +44,28 @@ app.MapGet("/error", () => {
 
 app.MapGet("/packages", async (IHttpClientFactory factory) => {
     var client = factory.CreateClient();
-    
     var fastTask = client.GetStringAsync("http://providerservice:8080/availability");
     var slowTask = client.GetStringAsync("http://providerservice:8080/availability/slow");
-    
     await Task.WhenAll(fastTask, slowTask);
-    
     var fastObj = JsonSerializer.Deserialize<object>(fastTask.Result);
     var slowObj = JsonSerializer.Deserialize<object>(slowTask.Result);
-    
     return Results.Json(new { 
         message = "busqueda completada en paralelo",
         fast_provider = fastObj,
         slow_provider = slowObj
     });
+});
+
+app.MapGet("/leak", () => {
+    leak.Add(new byte[1024 * 1024]);
+    var mb = leak.Count;
+    return Results.Ok(new { leaked_mb = mb, message = $"Memoria acumulada: {mb}MB" });
+});
+
+app.MapGet("/leak/reset", () => {
+    leak.Clear();
+    GC.Collect();
+    return Results.Ok(new { message = "memoria liberada" });
 });
 
 app.Run();
