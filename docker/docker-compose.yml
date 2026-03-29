@@ -9,6 +9,7 @@ services:
     depends_on:
       - providerservice
       - jaeger
+      - rabbitmq
 
   providerservice:
     build:
@@ -19,6 +20,25 @@ services:
       - ASPNETCORE_URLS=http://+:8080
     depends_on:
       - jaeger
+
+  workerservice:
+    build:
+      context: ../src/WorkerService
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+    depends_on:
+      - rabbitmq
+      - providerservice
+      - jaeger
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
 
   jaeger:
     image: jaegertracing/all-in-one:latest
@@ -32,7 +52,13 @@ services:
     image: alpine/curl
     depends_on:
       - apiservice
-    entrypoint: sh -c "while true; do curl -s http://apiservice:8080/fast > /dev/null; curl -s http://apiservice:8080/slow > /dev/null; curl -s http://apiservice:8080/error > /dev/null; curl -s http://apiservice:8080/packages > /dev/null; sleep 2; done"
+    entrypoint: sh -c "while true; do
+      curl -s http://apiservice:8080/fast > /dev/null;
+      curl -s http://apiservice:8080/slow > /dev/null;
+      curl -s http://apiservice:8080/error > /dev/null;
+      curl -s http://apiservice:8080/packages > /dev/null;
+      sleep 2;
+      done"
 
   prometheus:
     image: prom/prometheus:latest
