@@ -1,41 +1,28 @@
-var builder = WebApplication.CreateBuilder(args);
+using Prometheus;
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.UseRouting();
+app.UseHttpMetrics();
+app.MapMetrics();
+app.MapControllers();
 
-app.UseHttpsRedirection();
+app.MapGet("/fast", () => Results.Ok(new { message = "respuesta rápida", ms = 10 }));
 
-var summaries = new[]
+app.MapGet("/slow", async () =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    await Task.Delay(Random.Shared.Next(200, 800));
+    return Results.Ok(new { message = "respuesta lenta" });
+});
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/error", () =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    if (Random.Shared.Next(0, 2) == 0)
+        return Results.Problem("error aleatorio");
+    return Results.Ok(new { message = "esta vez no falló" });
+});
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
