@@ -56,7 +56,7 @@ echo ""
 # ---- Verificar que todo está UP ----
 echo "[4/4] Verificando servicios..."
 echo "Esperando 15 segundos para que arranquen los contenedores..."
-sleep 15
+sleep 25
 
 check_service() {
     local name=$1
