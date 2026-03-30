@@ -1,10 +1,9 @@
 {
   "version": 2,
-  "dgSpecHash": "TJY9DScVWQU=",
+  "dgSpecHash": "c7jY4Lae8tc=",
   "success": true,
   "projectFilePath": "/home/retro1312/observability-lab/src/ProviderService/ProviderService.csproj",
   "expectedPackageFiles": [
-    "/home/retro1312/.nuget/packages/microsoft.aspnetcore.openapi/9.0.14/microsoft.aspnetcore.openapi.9.0.14.nupkg.sha512",
     "/home/retro1312/.nuget/packages/microsoft.extensions.configuration/9.0.0/microsoft.extensions.configuration.9.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/microsoft.extensions.configuration.abstractions/9.0.0/microsoft.extensions.configuration.abstractions.9.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/microsoft.extensions.configuration.binder/9.0.0/microsoft.extensions.configuration.binder.9.0.0.nupkg.sha512",
@@ -21,7 +20,6 @@
     "/home/retro1312/.nuget/packages/microsoft.extensions.options/9.0.0/microsoft.extensions.options.9.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/microsoft.extensions.options.configurationextensions/9.0.0/microsoft.extensions.options.configurationextensions.9.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/microsoft.extensions.primitives/9.0.0/microsoft.extensions.primitives.9.0.0.nupkg.sha512",
-    "/home/retro1312/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry/1.15.1/opentelemetry.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.api/1.15.1/opentelemetry.api.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.api.providerbuilderextensions/1.15.1/opentelemetry.api.providerbuilderextensions.1.15.1.nupkg.sha512",

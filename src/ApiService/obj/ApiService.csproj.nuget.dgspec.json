@@ -44,13 +44,9 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
-            "Microsoft.AspNetCore.OpenApi": {
-              "target": "Package",
-              "version": "[9.0.14, )"
-            },
             "Npgsql": {
               "target": "Package",
-              "version": "[10.0.2, )"
+              "version": "[9.0.3, )"
             },
             "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
               "target": "Package",

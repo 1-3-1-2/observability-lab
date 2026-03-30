@@ -1,0 +1,6 @@
+/home/retro1312/observability-lab/src/WorkerService/obj/Debug/net9.0/WorkerService.csproj.AssemblyReference.cache
+/home/retro1312/observability-lab/src/WorkerService/obj/Debug/net9.0/WorkerService.GeneratedMSBuildEditorConfig.editorconfig
+/home/retro1312/observability-lab/src/WorkerService/obj/Debug/net9.0/WorkerService.AssemblyInfoInputs.cache
+/home/retro1312/observability-lab/src/WorkerService/obj/Debug/net9.0/WorkerService.AssemblyInfo.cs
+/home/retro1312/observability-lab/src/WorkerService/obj/Debug/net9.0/WorkerService.csproj.CoreCompileInputs.cache
+/home/retro1312/observability-lab/src/WorkerService/obj/Debug/net9.0/WorkerService.sourcelink.json

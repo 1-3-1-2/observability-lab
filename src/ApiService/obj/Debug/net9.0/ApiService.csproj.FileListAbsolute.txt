@@ -46,8 +46,6 @@
 /home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/ApiService.runtimeconfig.json
 /home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/ApiService.dll
 /home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/ApiService.pdb
-/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/Microsoft.AspNetCore.OpenApi.dll
-/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/Microsoft.OpenApi.dll
 /home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/OpenTelemetry.dll
 /home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/OpenTelemetry.Api.dll
 /home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/OpenTelemetry.Api.ProviderBuilderExtensions.dll
@@ -78,3 +76,11 @@
 /home/retro1312/observability-lab/src/ApiService/obj/Debug/net9.0/ApiService.pdb
 /home/retro1312/observability-lab/src/ApiService/obj/Debug/net9.0/ApiService.genruntimeconfig.cache
 /home/retro1312/observability-lab/src/ApiService/obj/Debug/net9.0/ref/ApiService.dll
+/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/Npgsql.dll
+/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/OpenTelemetry.Exporter.OpenTelemetryProtocol.dll
+/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/OpenTelemetry.Instrumentation.Http.dll
+/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/Pipelines.Sockets.Unofficial.dll
+/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/RabbitMQ.Client.dll
+/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/StackExchange.Redis.dll
+/home/retro1312/observability-lab/src/ApiService/bin/Debug/net9.0/System.IO.Hashing.dll
+/home/retro1312/observability-lab/src/ApiService/obj/Debug/net9.0/ApiService.sourcelink.json
