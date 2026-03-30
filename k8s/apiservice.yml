@@ -23,6 +23,23 @@ spec:
           env:
             - name: ASPNETCORE_URLS
               value: "http://+:8080"
+            # Configuración desde ConfigMap
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: observability-config
+                  key: postgres-host
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: observability-config
+                  key: redis-host
+            # Credenciales desde Secret
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: observability-secrets
+                  key: postgres-password
 ---
 apiVersion: v1
 kind: Service
