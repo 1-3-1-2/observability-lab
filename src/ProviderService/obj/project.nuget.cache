@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "dNlZ57Td5mo=",
+  "dgSpecHash": "TJY9DScVWQU=",
   "success": true,
   "projectFilePath": "/home/retro1312/observability-lab/src/ProviderService/ProviderService.csproj",
   "expectedPackageFiles": [
@@ -29,9 +29,13 @@
     "/home/retro1312/.nuget/packages/opentelemetry.extensions.hosting/1.15.1/opentelemetry.extensions.hosting.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.instrumentation.aspnetcore/1.15.1/opentelemetry.instrumentation.aspnetcore.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.instrumentation.http/1.15.0/opentelemetry.instrumentation.http.1.15.0.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/pipelines.sockets.unofficial/2.2.8/pipelines.sockets.unofficial.2.2.8.nupkg.sha512",
     "/home/retro1312/.nuget/packages/prometheus-net/8.2.1/prometheus-net.8.2.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/prometheus-net.aspnetcore/8.2.1/prometheus-net.aspnetcore.8.2.1.nupkg.sha512",
-    "/home/retro1312/.nuget/packages/system.diagnostics.diagnosticsource/10.0.0/system.diagnostics.diagnosticsource.10.0.0.nupkg.sha512"
+    "/home/retro1312/.nuget/packages/stackexchange.redis/2.12.8/stackexchange.redis.2.12.8.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/system.diagnostics.diagnosticsource/10.0.0/system.diagnostics.diagnosticsource.10.0.0.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/system.io.hashing/10.0.2/system.io.hashing.10.0.2.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/system.io.pipelines/5.0.1/system.io.pipelines.5.0.1.nupkg.sha512"
   ],
   "logs": []
 }
