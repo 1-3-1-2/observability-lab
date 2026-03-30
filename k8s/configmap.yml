@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-config
+data:
+  postgres-host: postgres
+  postgres-db: bookings
+  postgres-user: admin
+  rabbitmq-host: rabbitmq
+  redis-host: redis
