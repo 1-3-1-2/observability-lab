@@ -1,6 +1,6 @@
 {
-  "SerializedFilePath": "\\\\wsl.localhost\\Ubuntu\\home\\retro1312\\observability-lab\\src\\ApiService\\obj\\Debug\\net9.0\\project.razor.json",
-  "FilePath": "\\\\wsl.localhost\\Ubuntu\\home\\retro1312\\observability-lab\\src\\ApiService\\ApiService.csproj",
+  "SerializedFilePath": "\\\\wsl.localhost\\Ubuntu\\home\\retro1312\\observability-lab\\src\\ProviderService\\obj\\Debug\\net9.0\\project.razor.json",
+  "FilePath": "\\\\wsl.localhost\\Ubuntu\\home\\retro1312\\observability-lab\\src\\ProviderService\\ProviderService.csproj",
   "Configuration": {
     "ConfigurationName": "MVC-3.0",
     "LanguageVersion": "8.0",
@@ -19463,7 +19463,7 @@
     ],
     "CSharpLanguageVersion": 1300
   },
-  "RootNamespace": "ApiService",
+  "RootNamespace": "ProviderService",
   "Documents": [],
   "SerializationFormat": "0.3"
 }

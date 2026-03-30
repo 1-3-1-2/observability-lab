@@ -2,20 +2,10 @@ using Prometheus;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-// ============================================================
-// ProviderService — simula integraciones con proveedores externos
-// En el mundo real sería un adaptador hacia APIs de Amadeus,
-// Sabre, o cualquier proveedor de contenido turístico
-// ============================================================
-
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 
-// Configuración de trazas — igual que en ApiService
-// Al compartir el mismo colector de Jaeger, las trazas de ambos
-// servicios se unen automáticamente por el trace_id propagado
-// en las cabeceras HTTP
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracing =>
     {
@@ -36,13 +26,12 @@ app.UseHttpMetrics();
 app.MapMetrics();
 app.MapControllers();
 
-// Variable que controla la degradación artificial de latencia
-// Permite simular un proveedor que se va poniendo más lento
-// sin necesidad de reiniciar el servicio
 var degradation = 0;
 
-// Proveedor rápido — simula un proveedor con buena conectividad
-// Latencia base: 50-300ms + degradación acumulada
+// Controla si el proveedor lento devuelve errores
+// true = falla con 503, false = responde normal
+var slowProviderFailing = false;
+
 app.MapGet("/availability", async () => {
     await Task.Delay(Random.Shared.Next(50, 300) + degradation);
     return Results.Ok(new {
@@ -52,10 +41,15 @@ app.MapGet("/availability", async () => {
     });
 });
 
-// Proveedor lento — simula un proveedor con peor rendimiento
-// Latencia base: 1000-3000ms + degradación acumulada
-// Es el cuello de botella principal de /packages en ApiService
 app.MapGet("/availability/slow", async () => {
+    if (slowProviderFailing)
+    {
+        // Devuelve error 503 inmediatamente — el circuit breaker lo detecta rápido
+        return Results.Problem(
+            detail: "Provider temporarily unavailable",
+            statusCode: 503
+        );
+    }
     await Task.Delay(Random.Shared.Next(1000, 3000) + degradation);
     return Results.Ok(new {
         provider = "slowprovider",
@@ -64,19 +58,26 @@ app.MapGet("/availability/slow", async () => {
     });
 });
 
-// Endpoint de degradación progresiva
-// Cada llamada añade 200ms de latencia a todos los endpoints
-// Permite simular un proveedor que se degrada poco a poco
-// En Grafana verás el p99 subir de forma gradual y constante
+// Activa los fallos del proveedor lento
+app.MapPost("/availability/slow/fail", () => {
+    slowProviderFailing = true;
+    return Results.Ok(new { message = "slowprovider ahora falla con 503" });
+});
+
+// Recupera el proveedor lento
+app.MapPost("/availability/slow/recover", () => {
+    slowProviderFailing = false;
+    return Results.Ok(new { message = "slowprovider recuperado" });
+});
+
 app.MapGet("/degrade", () => {
     degradation += 200;
     return Results.Ok(new { degradation_ms = degradation });
 });
 
-// Endpoint de recuperación — resetea la degradación a cero
-// Simula que el proveedor externo se recupera
 app.MapGet("/reset", () => {
     degradation = 0;
+    slowProviderFailing = false;
     return Results.Ok(new { degradation_ms = degradation });
 });
 

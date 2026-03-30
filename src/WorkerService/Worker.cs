@@ -3,11 +3,9 @@ using RabbitMQ.Client.Events;
 using System.Text;
 using System.Text.Json;
 using Npgsql;
+using Polly;
+using Polly.CircuitBreaker;
 
-// ============================================================
-// Worker — consumidor de mensajes de RabbitMQ
-// Procesa reservas y guarda el resultado en PostgreSQL
-// ============================================================
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
@@ -16,17 +14,74 @@ public class Worker : BackgroundService
     private IConnection? _connection;
     private IChannel? _channel;
 
+    private readonly ResiliencePipeline _fastProviderCB;
+    private readonly ResiliencePipeline _slowProviderCB;
+
+    private string _fastCBState = "closed";
+    private string _slowCBState = "closed";
+
     public Worker(ILogger<Worker> logger, IHttpClientFactory factory, IConfiguration config)
     {
         _logger = logger;
         _httpClient = factory.CreateClient();
         _connectionString = config.GetConnectionString("Postgres")
             ?? throw new InvalidOperationException("Connection string 'Postgres' not found");
+
+        _fastProviderCB = BuildCircuitBreaker("fastprovider",
+            onOpen: () => _fastCBState = "open",
+            onClose: () => _fastCBState = "closed",
+            onHalfOpen: () => _fastCBState = "half-open");
+
+        _slowProviderCB = BuildCircuitBreaker("slowprovider",
+            onOpen: () => _slowCBState = "open",
+            onClose: () => _slowCBState = "closed",
+            onHalfOpen: () => _slowCBState = "half-open");
+    }
+
+    private ResiliencePipeline BuildCircuitBreaker(
+        string name,
+        Action onOpen,
+        Action onClose,
+        Action onHalfOpen)
+    {
+        return new ResiliencePipelineBuilder()
+            .AddCircuitBreaker(new CircuitBreakerStrategyOptions
+            {
+                FailureRatio = 0.5,
+                MinimumThroughput = 3,
+                BreakDuration = TimeSpan.FromSeconds(30),
+                SamplingDuration = TimeSpan.FromSeconds(60),
+
+                // En Polly v8 usamos ShouldHandle con Handle<Exception>
+                // y verificamos el status code dentro del ExecuteAsync
+                ShouldHandle = new PredicateBuilder()
+                    .Handle<HttpRequestException>()
+                    .Handle<TaskCanceledException>(),
+
+                OnOpened = args =>
+                {
+                    onOpen();
+                    _logger.LogWarning("CIRCUIT BREAKER ABIERTO — {Name}", name);
+                    return ValueTask.CompletedTask;
+                },
+                OnClosed = args =>
+                {
+                    onClose();
+                    _logger.LogInformation("CIRCUIT BREAKER CERRADO — {Name} recuperado", name);
+                    return ValueTask.CompletedTask;
+                },
+                OnHalfOpened = args =>
+                {
+                    onHalfOpen();
+                    _logger.LogInformation("CIRCUIT BREAKER HALF-OPEN — probando {Name}", name);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Esperamos a que PostgreSQL y RabbitMQ estén listos
         await InitializeDatabase(stoppingToken);
         await WaitForRabbitMQ(stoppingToken);
 
@@ -48,7 +103,6 @@ public class Worker : BackgroundService
         );
 
         await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-
         _logger.LogInformation("Worker conectado. Esperando mensajes...");
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
@@ -65,39 +119,71 @@ public class Worker : BackgroundService
                 return;
             }
 
-            _logger.LogInformation("Procesando booking {BookingId} para {Destination}",
-                booking.BookingId, booking.Destination);
+            _logger.LogInformation("Procesando booking {BookingId}", booking.BookingId);
+            await SaveBooking(booking, "processing", null);
 
+            string fastResult = "{\"provider\":\"amadeus\",\"available\":false,\"reason\":\"circuit_breaker_open\"}";
             try
             {
-                // Guardamos la reserva en BD con estado "processing"
-                await SaveBooking(booking, "processing", null);
-
-                // Consultamos disponibilidad en paralelo
-                var fastTask = _httpClient.GetStringAsync("http://providerservice:8080/availability");
-                var slowTask = _httpClient.GetStringAsync("http://providerservice:8080/availability/slow");
-                await Task.WhenAll(fastTask, slowTask);
-
-                var result = JsonSerializer.Serialize(new
+                await _fastProviderCB.ExecuteAsync(async ct =>
                 {
-                    fast_provider = JsonSerializer.Deserialize<object>(fastTask.Result),
-                    slow_provider = JsonSerializer.Deserialize<object>(slowTask.Result)
-                });
+                    var response = await _httpClient.GetAsync(
+                        "http://providerservice:8080/availability", ct);
 
-                // Actualizamos la reserva con estado "completed" y el resultado
-                await UpdateBooking(booking.BookingId, "completed", result);
+                    // Lanzamos excepción si es 5xx para que Polly lo cuente como fallo
+                    if ((int)response.StatusCode >= 500)
+                        throw new HttpRequestException($"Server error: {response.StatusCode}");
 
-                _logger.LogInformation("Booking {BookingId} completado y guardado en BD",
-                    booking.BookingId);
-
-                await _channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
+                    fastResult = await response.Content.ReadAsStringAsync(ct);
+                }, stoppingToken);
+            }
+            catch (BrokenCircuitException)
+            {
+                _logger.LogWarning("Booking {BookingId}: fastprovider cortado por CB", booking.BookingId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error procesando booking {BookingId}", booking.BookingId);
-                await UpdateBooking(booking.BookingId, "failed", ex.Message);
-                await _channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false);
+                _logger.LogWarning("Booking {BookingId}: fastprovider error: {Error}", booking.BookingId, ex.Message);
             }
+
+            string slowResult = "{\"provider\":\"slowprovider\",\"available\":false,\"reason\":\"circuit_breaker_open\"}";
+            try
+            {
+                await _slowProviderCB.ExecuteAsync(async ct =>
+                {
+                    var response = await _httpClient.GetAsync(
+                        "http://providerservice:8080/availability/slow", ct);
+
+                    // Lanzamos excepción si es 5xx para que Polly lo cuente como fallo
+                    if ((int)response.StatusCode >= 500)
+                        throw new HttpRequestException($"Server error: {response.StatusCode}");
+
+                    slowResult = await response.Content.ReadAsStringAsync(ct);
+                }, stoppingToken);
+            }
+            catch (BrokenCircuitException)
+            {
+                _logger.LogWarning("Booking {BookingId}: slowprovider cortado por CB", booking.BookingId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Booking {BookingId}: slowprovider error: {Error}", booking.BookingId, ex.Message);
+            }
+
+            var result = JsonSerializer.Serialize(new
+            {
+                fast_cb_state = _fastCBState,
+                slow_cb_state = _slowCBState,
+                fast_provider = JsonSerializer.Deserialize<object>(fastResult),
+                slow_provider = JsonSerializer.Deserialize<object>(slowResult)
+            });
+
+            await UpdateBooking(booking.BookingId, "completed", result);
+
+            _logger.LogInformation("Booking {BookingId} completado. Fast CB: {FastState}, Slow CB: {SlowState}",
+                booking.BookingId, _fastCBState, _slowCBState);
+
+            await _channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
         };
 
         await _channel.BasicConsumeAsync(
@@ -109,7 +195,6 @@ public class Worker : BackgroundService
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    // Crea la tabla de reservas si no existe
     private async Task InitializeDatabase(CancellationToken stoppingToken)
     {
         for (int i = 0; i < 10; i++)
@@ -118,7 +203,6 @@ public class Worker : BackgroundService
             {
                 await using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync(stoppingToken);
-
                 await using var cmd = new NpgsqlCommand(@"
                     CREATE TABLE IF NOT EXISTS bookings (
                         id          TEXT PRIMARY KEY,
@@ -129,9 +213,8 @@ public class Worker : BackgroundService
                         created_at  TIMESTAMPTZ DEFAULT NOW(),
                         updated_at  TIMESTAMPTZ DEFAULT NOW()
                     )", conn);
-
                 await cmd.ExecuteNonQueryAsync(stoppingToken);
-                _logger.LogInformation("Base de datos inicializada correctamente");
+                _logger.LogInformation("Base de datos inicializada");
                 return;
             }
             catch (Exception ex)
@@ -150,13 +233,11 @@ public class Worker : BackgroundService
             INSERT INTO bookings (id, destination, passengers, status, result)
             VALUES (@id, @destination, @passengers, @status, @result)
             ON CONFLICT (id) DO NOTHING", conn);
-
         cmd.Parameters.AddWithValue("id", booking.BookingId);
         cmd.Parameters.AddWithValue("destination", booking.Destination);
         cmd.Parameters.AddWithValue("passengers", booking.Passengers);
         cmd.Parameters.AddWithValue("status", status);
         cmd.Parameters.AddWithValue("result", result ?? (object)DBNull.Value);
-
         await cmd.ExecuteNonQueryAsync();
     }
 
@@ -168,11 +249,9 @@ public class Worker : BackgroundService
             UPDATE bookings
             SET status = @status, result = @result, updated_at = NOW()
             WHERE id = @id", conn);
-
         cmd.Parameters.AddWithValue("id", bookingId);
         cmd.Parameters.AddWithValue("status", status);
         cmd.Parameters.AddWithValue("result", result ?? (object)DBNull.Value);
-
         await cmd.ExecuteNonQueryAsync();
     }
 
@@ -184,7 +263,6 @@ public class Worker : BackgroundService
             UserName = "admin",
             Password = "admin"
         };
-
         for (int i = 0; i < 10; i++)
         {
             try

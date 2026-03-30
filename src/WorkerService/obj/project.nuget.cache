@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "ubWY9vFRlSM=",
+  "dgSpecHash": "Zv2WS+Eft28=",
   "success": true,
   "projectFilePath": "/home/retro1312/observability-lab/src/WorkerService/WorkerService.csproj",
   "expectedPackageFiles": [
@@ -38,6 +38,9 @@
     "/home/retro1312/.nuget/packages/opentelemetry.exporter.opentelemetryprotocol/1.15.1/opentelemetry.exporter.opentelemetryprotocol.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.extensions.hosting/1.15.1/opentelemetry.extensions.hosting.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.instrumentation.aspnetcore/1.15.1/opentelemetry.instrumentation.aspnetcore.1.15.1.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/polly/8.6.6/polly.8.6.6.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/polly.core/8.6.6/polly.core.8.6.6.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/polly.extensions.http/3.0.0/polly.extensions.http.3.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/rabbitmq.client/7.2.1/rabbitmq.client.7.2.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/system.diagnostics.diagnosticsource/10.0.0/system.diagnostics.diagnosticsource.10.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/system.diagnostics.eventlog/9.0.14/system.diagnostics.eventlog.9.0.14.nupkg.sha512",
