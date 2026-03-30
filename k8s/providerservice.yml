@@ -1,0 +1,41 @@
+# Deployment — garantiza que siempre hay 1 réplica del ProviderService corriendo
+# Si el pod cae, Kubernetes lo reinicia automáticamente
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: providerservice
+  labels:
+    app: providerservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: providerservice
+  template:
+    metadata:
+      labels:
+        app: providerservice
+    spec:
+      containers:
+        - name: providerservice
+          image: docker-providerservice:latest
+          # imagePullPolicy: Never — usa la imagen local, no la busca en Docker Hub
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+---
+# Service — expone el ProviderService dentro del clúster
+# Otros pods pueden llamarle por nombre: http://providerservice:8080
+apiVersion: v1
+kind: Service
+metadata:
+  name: providerservice
+spec:
+  selector:
+    app: providerservice
+  ports:
+    - port: 8080
+      targetPort: 8080

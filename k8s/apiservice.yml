@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apiservice
+  labels:
+    app: apiservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apiservice
+  template:
+    metadata:
+      labels:
+        app: apiservice
+    spec:
+      containers:
+        - name: apiservice
+          image: docker-apiservice:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apiservice
+spec:
+  selector:
+    app: apiservice
+  ports:
+    - port: 8080
+      targetPort: 8080
