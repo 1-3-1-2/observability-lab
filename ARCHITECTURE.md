@@ -165,3 +165,21 @@ principal dispara cuando el p99 de latencia supera 1 segundo.
 - **Kubernetes** — orquestación de contenedores en producción
 - **Outbox pattern** — garantía de publicación de eventos
 - **Rate limiting** — protección contra abuso
+
+## API Gateway
+
+### YARP (Yet Another Reverse Proxy)
+Usamos YARP como API Gateway porque es el proxy inverso oficial de Microsoft
+para .NET, con configuración declarativa en JSON y sin código adicional.
+
+Sin gateway, el cliente necesita conocer la URL de cada servicio y gestionar
+el enrutamiento él mismo. Cuando los servicios escalan o cambian de IP, hay
+que actualizar todos los clientes. Con el gateway, el cliente siempre habla
+con `http://localhost` y el gateway decide a dónde va cada petición.
+
+**Rutas configuradas:**
+- `/api/*` → ApiService — elimina el prefijo `/api` antes de reenviar
+- `/providers/*` → ProviderService — elimina el prefijo `/providers`
+
+El gateway también es el lugar natural para añadir en el futuro:
+autenticación centralizada, rate limiting, logging de acceso, y SSL termination.

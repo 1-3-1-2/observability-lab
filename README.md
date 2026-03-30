@@ -23,8 +23,9 @@ Stack completo de observabilidad y patrones de arquitectura distribuida.
 
 | Servicio        | URL                        | Descripción                        |
 |-----------------|----------------------------|------------------------------------|
-| ApiService      | http://localhost:5068      | API principal                      |
-| ProviderService | http://localhost:5069      | Simulador de proveedores externos  |
+| **Gateway**     | **http://localhost**       | **Punto de entrada único**         |
+| ApiService      | http://localhost:5068      | API principal (acceso directo)     |
+| ProviderService | http://localhost:5069      | Proveedores (acceso directo)       |
 | Prometheus      | http://localhost:9090      | Métricas                           |
 | Grafana         | http://localhost:3000      | Dashboards y alertas (admin/admin) |
 | Jaeger          | http://localhost:16686     | Trazas distribuidas                |
@@ -37,64 +38,53 @@ Stack completo de observabilidad y patrones de arquitectura distribuida.
 ```
 Cliente
   ↓
-ApiService (puerto 5068)
+Gateway (puerto 80) — YARP
+  ├── /api/*       → ApiService:8080
+  └── /providers/* → ProviderService:8080
+
+ApiService
   ├── GET /packages → Redis caché → ProviderService (paralelo)
   ├── POST /bookings → RabbitMQ → WorkerService → PostgreSQL
   └── GET /bookings/{id} → PostgreSQL
 
 WorkerService
   ├── Consume booking-requests
-  ├── Circuit breaker en llamadas a ProviderService
-  ├── Retry con cola booking-requests.retry (TTL 10s)
-  └── Dead Letter Queue booking-requests.dlq (máx 3 reintentos)
-
-ProviderService (puerto 5069)
-  ├── GET /availability → proveedor rápido (50-300ms)
-  └── GET /availability/slow → proveedor lento (1000-3000ms)
+  ├── Circuit breaker → ProviderService
+  ├── Retry → booking-requests.retry (TTL 10s)
+  └── Dead Letter Queue → booking-requests.dlq (máx 3 reintentos)
 ```
 
 ## Patrones implementados
 
 | Patrón | Dónde | Para qué |
 |--------|-------|----------|
-| Llamadas paralelas | `/packages` | Reducir latencia de N a max(N) |
-| Circuit breaker | WorkerService → ProviderService | Proteger contra fallos en cascada |
+| API Gateway | YARP | Punto de entrada único |
+| Llamadas paralelas | `/packages` | Reducir latencia |
+| Circuit breaker | WorkerService | Proteger contra fallos en cascada |
 | Retry + DLQ | RabbitMQ | Mensajes que fallan repetidamente |
-| Caché TTL | Redis | Evitar llamadas repetidas a proveedores |
-| Invalidación activa | ProviderService → Redis | Datos frescos cuando cambian precios |
-| Stale-while-revalidate | ApiService | Latencia 0 aunque el caché expire |
+| Caché TTL | Redis | Evitar llamadas repetidas |
+| Invalidación activa | ProviderService → Redis | Datos frescos al cambiar precios |
+| Stale-while-revalidate | ApiService | Latencia 0 aunque expire el caché |
 | Observabilidad completa | Prometheus + Grafana + Jaeger + Loki | Las tres señales |
 
-## Endpoints ApiService
+## Endpoints a través del Gateway
 ```bash
-# Endpoints básicos
-GET  /fast                    → respuesta rápida
-GET  /slow                    → respuesta lenta (200-800ms)
-GET  /error                   → falla el 50% de las veces
-GET  /packages?destination=X  → búsqueda con caché (TTL + stale)
+# ApiService
+GET  http://localhost/api/fast
+GET  http://localhost/api/slow
+GET  http://localhost/api/error
+GET  http://localhost/api/packages?destination=Mallorca
+POST http://localhost/api/bookings
+GET  http://localhost/api/bookings/{id}
+GET  http://localhost/api/bookings
 
-# Reservas
-POST /bookings                → crea reserva asíncrona
-GET  /bookings/{id}           → consulta estado de reserva
-GET  /bookings                → lista últimas 20 reservas
-
-# Simulaciones
-GET  /leak                    → añade 1MB de memoria
-GET  /leak/reset              → libera la memoria
-```
-
-## Endpoints ProviderService
-```bash
-GET  /availability            → proveedor rápido
-GET  /availability/slow       → proveedor lento
-
-POST /availability/slow/fail    → activa fallos 503
-POST /availability/slow/recover → recupera el proveedor
-GET  /degrade                   → añade 200ms de latencia
-GET  /reset                     → resetea latencia y fallos
-
-POST /prices/update             → invalida caché de un destino
-POST /prices/update/all         → invalida todo el caché
+# ProviderService
+GET  http://localhost/providers/availability
+GET  http://localhost/providers/availability/slow
+POST http://localhost/providers/availability/slow/fail
+POST http://localhost/providers/availability/slow/recover
+POST http://localhost/providers/prices/update
+POST http://localhost/providers/prices/update/all
 ```
 
 ## Simulaciones de fallos
@@ -107,43 +97,30 @@ docker start $(docker ps -aq --filter name=providerservice)
 
 ### Degradación progresiva
 ```bash
-curl http://localhost:5069/degrade  # +200ms por llamada
-curl http://localhost:5069/reset    # resetea
+curl http://localhost/providers/degrade  # +200ms por llamada
+curl http://localhost/providers/reset    # resetea
 ```
 
 ### Fallos 503
 ```bash
-curl -X POST http://localhost:5069/availability/slow/fail
-curl -X POST http://localhost:5069/availability/slow/recover
+curl -X POST http://localhost/providers/availability/slow/fail
+curl -X POST http://localhost/providers/availability/slow/recover
 ```
 
 ### Memory leak
 ```bash
-curl http://localhost:5068/leak        # +1MB
-curl http://localhost:5068/leak/reset  # libera
-```
-
-### Dead Letter Queue
-```bash
-# Activa fallos para que los mensajes vayan a DLQ tras 3 reintentos
-curl -X POST http://localhost:5069/availability/slow/fail
-
-# Envía una reserva
-curl -X POST http://localhost:5068/bookings \
-  -H "Content-Type: application/json" \
-  -d '{"bookingId":"","destination":"Test","passengers":1}'
-
-# Ver estado en BD
-curl http://localhost:5068/bookings
+curl http://localhost/api/leak        # +1MB
+curl http://localhost/api/leak/reset  # libera
 ```
 
 ## Stack técnico
 
+- **API Gateway**: YARP (Yet Another Reverse Proxy)
 - **Métricas**: Prometheus + prometheus-net + Grafana
 - **Trazas**: OpenTelemetry + Jaeger
 - **Logs**: Loki + Promtail + Grafana
 - **Servicios**: .NET 9 + ASP.NET Core
-- **Mensajería**: RabbitMQ + patron retry + DLQ
+- **Mensajería**: RabbitMQ + retry + DLQ
 - **Caché**: Redis + StackExchange.Redis
 - **Base de datos**: PostgreSQL + Npgsql
 - **Resiliencia**: Polly (circuit breaker)
