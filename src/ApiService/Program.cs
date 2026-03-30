@@ -28,20 +28,30 @@ app.MapMetrics();
 app.MapControllers();
 
 var leak = new List<byte[]>();
-var pgConnection = "Host=postgres;Database=bookings;Username=admin;Password=admin";
 
+// Leemos configuración de variables de entorno con fallback para Docker Compose
+var pgHost = Environment.GetEnvironmentVariable("POSTGRES_HOST") ?? "postgres";
+var pgPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "admin";
+var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "redis";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitPassword = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "admin";
+
+var pgConnection = $"Host={pgHost};Database=bookings;Username=admin;Password={pgPassword}";
+
+// Conexión a Redis
 IDatabase? redisDb = null;
 try
 {
-    var redis = await ConnectionMultiplexer.ConnectAsync("redis:6379");
+    var redis = await ConnectionMultiplexer.ConnectAsync($"{redisHost}:6379");
     redisDb = redis.GetDatabase();
-    app.Logger.LogInformation("Conectado a Redis");
+    app.Logger.LogInformation("Conectado a Redis en {Host}", redisHost);
 }
 catch (Exception ex)
 {
     app.Logger.LogWarning("No se pudo conectar a Redis: {Error}", ex.Message);
 }
 
+// Conexión a RabbitMQ con reintentos
 IConnection? rabbitConnection = null;
 IChannel? rabbitChannel = null;
 
@@ -49,11 +59,16 @@ for (int attempt = 1; attempt <= 10; attempt++)
 {
     try
     {
-        var factory = new ConnectionFactory { HostName = "rabbitmq", UserName = "admin", Password = "admin" };
+        var factory = new ConnectionFactory
+        {
+            HostName = rabbitHost,
+            UserName = "admin",
+            Password = rabbitPassword
+        };
         rabbitConnection = await factory.CreateConnectionAsync();
         rabbitChannel = await rabbitConnection.CreateChannelAsync();
         await rabbitChannel.QueueDeclareAsync("booking-requests", durable: true, exclusive: false, autoDelete: false);
-        app.Logger.LogInformation("Conectado a RabbitMQ en intento {Attempt}", attempt);
+        app.Logger.LogInformation("Conectado a RabbitMQ en {Host} intento {Attempt}", rabbitHost, attempt);
         break;
     }
     catch (Exception ex)
@@ -67,10 +82,7 @@ var cacheHits = Metrics.CreateCounter("cache_hits_total", "Cache hits", "endpoin
 var cacheMisses = Metrics.CreateCounter("cache_misses_total", "Cache misses", "endpoint");
 var cacheStale = Metrics.CreateCounter("cache_stale_total", "Stale cache servidos", "endpoint");
 
-// TTL real del caché — después de este tiempo los datos se consideran frescos
 const int CacheTtlSeconds = 30;
-// Tiempo extra de gracia — durante este tiempo los datos se sirven como stale
-// mientras se refresca en background
 const int StaleGraceSeconds = 60;
 
 app.MapGet("/fast", () => Results.Ok(new { message = "respuesta rapida", ms = 10 }));
@@ -85,28 +97,17 @@ app.MapGet("/packages", async (IHttpClientFactory factory, string? destination) 
 
     if (redisDb != null)
     {
-        // Intentamos obtener datos frescos
         var cached = await redisDb.StringGetAsync(cacheKey);
         if (cached.HasValue)
         {
             cacheHits.WithLabels("/packages").Inc();
-            app.Logger.LogInformation("Cache HIT (fresco) para {Destination}", destination);
-            return Results.Json(new
-            {
-                source = "cache_fresh",
-                destination,
-                data = JsonSerializer.Deserialize<object>(cached.ToString())
-            });
+            return Results.Json(new { source = "cache_fresh", destination, data = JsonSerializer.Deserialize<object>(cached.ToString()) });
         }
 
-        // Cache expirado — intentamos obtener datos stale
         var stale = await redisDb.StringGetAsync(staleKey);
         if (stale.HasValue)
         {
             cacheStale.WithLabels("/packages").Inc();
-            app.Logger.LogInformation("Cache STALE para {Destination} — refrescando en background", destination);
-
-            // Refrescamos en background sin bloquear al usuario
             _ = Task.Run(async () =>
             {
                 try
@@ -115,59 +116,30 @@ app.MapGet("/packages", async (IHttpClientFactory factory, string? destination) 
                     var fastTask = bgClient.GetStringAsync("http://providerservice:8080/availability");
                     var slowTask = bgClient.GetStringAsync("http://providerservice:8080/availability/slow");
                     await Task.WhenAll(fastTask, slowTask);
-
-                    var freshResult = new
-                    {
-                        fast_provider = JsonSerializer.Deserialize<object>(fastTask.Result),
-                        slow_provider = JsonSerializer.Deserialize<object>(slowTask.Result)
-                    };
-
+                    var freshResult = new { fast_provider = JsonSerializer.Deserialize<object>(fastTask.Result), slow_provider = JsonSerializer.Deserialize<object>(slowTask.Result) };
                     var serialized = JsonSerializer.Serialize(freshResult);
-                    // Guardamos los datos frescos y actualizamos el stale
                     await redisDb.StringSetAsync(cacheKey, serialized, TimeSpan.FromSeconds(CacheTtlSeconds));
                     await redisDb.StringSetAsync(staleKey, serialized, TimeSpan.FromSeconds(StaleGraceSeconds));
-
-                    app.Logger.LogInformation("Cache refrescado en background para {Destination}", destination);
                 }
-                catch (Exception ex)
-                {
-                    app.Logger.LogWarning("Error refrescando cache en background: {Error}", ex.Message);
-                }
+                catch (Exception ex) { app.Logger.LogWarning("Error refrescando cache: {Error}", ex.Message); }
             });
-
-            // Devolvemos los datos stale inmediatamente — el usuario no espera
-            return Results.Json(new
-            {
-                source = "cache_stale",
-                destination,
-                data = JsonSerializer.Deserialize<object>(stale.ToString())
-            });
+            return Results.Json(new { source = "cache_stale", destination, data = JsonSerializer.Deserialize<object>(stale.ToString()) });
         }
-
         cacheMisses.WithLabels("/packages").Inc();
-        app.Logger.LogInformation("Cache MISS para {Destination} — consultando proveedores", destination);
     }
 
-    // Cache miss completo — consultamos proveedores y bloqueamos
     var client = factory.CreateClient();
     var fastProviderTask = client.GetStringAsync("http://providerservice:8080/availability");
     var slowProviderTask = client.GetStringAsync("http://providerservice:8080/availability/slow");
     await Task.WhenAll(fastProviderTask, slowProviderTask);
 
-    var result = new
-    {
-        fast_provider = JsonSerializer.Deserialize<object>(fastProviderTask.Result),
-        slow_provider = JsonSerializer.Deserialize<object>(slowProviderTask.Result)
-    };
+    var result = new { fast_provider = JsonSerializer.Deserialize<object>(fastProviderTask.Result), slow_provider = JsonSerializer.Deserialize<object>(slowProviderTask.Result) };
 
     if (redisDb != null)
     {
         var serialized = JsonSerializer.Serialize(result);
-        // Guardamos tanto la clave fresca como la stale
         await redisDb.StringSetAsync(cacheKey, serialized, TimeSpan.FromSeconds(CacheTtlSeconds));
         await redisDb.StringSetAsync(staleKey, serialized, TimeSpan.FromSeconds(StaleGraceSeconds));
-        app.Logger.LogInformation("Cache guardado para {Destination} (fresco: {Ttl}s, stale: {StaleTtl}s)",
-            destination, CacheTtlSeconds, StaleGraceSeconds);
     }
 
     return Results.Json(new { source = "providers", destination, data = result });
@@ -181,7 +153,6 @@ app.MapPost("/bookings", async (BookingRequest request) =>
     var envelope = new MessageEnvelope(booking, 0);
     var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(envelope));
     await rabbitChannel.BasicPublishAsync(exchange: "", routingKey: "booking-requests", body: body);
-    app.Logger.LogInformation("Booking {BookingId} publicado en cola", bookingId);
     return Results.Accepted($"/bookings/{bookingId}", new { booking_id = bookingId, status = "processing", message = "Reserva recibida" });
 });
 

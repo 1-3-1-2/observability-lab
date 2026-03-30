@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workerservice
+  labels:
+    app: workerservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workerservice
+  template:
+    metadata:
+      labels:
+        app: workerservice
+    spec:
+      containers:
+        - name: workerservice
+          image: docker-workerservice:latest
+          imagePullPolicy: Never
+          env:
+            - name: DOTNET_ENVIRONMENT
+              value: Production
+            - name: ConnectionStrings__Postgres
+              value: "Host=postgres;Database=bookings;Username=admin;Password=admin"

@@ -23,7 +23,6 @@ spec:
           env:
             - name: ASPNETCORE_URLS
               value: "http://+:8080"
-            # Configuración desde ConfigMap
             - name: POSTGRES_HOST
               valueFrom:
                 configMapKeyRef:
@@ -34,12 +33,21 @@ spec:
                 configMapKeyRef:
                   name: observability-config
                   key: redis-host
-            # Credenciales desde Secret
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: observability-config
+                  key: rabbitmq-host
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: observability-secrets
                   key: postgres-password
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: observability-secrets
+                  key: rabbitmq-password
 ---
 apiVersion: v1
 kind: Service
