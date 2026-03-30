@@ -125,3 +125,15 @@ curl http://localhost/api/leak/reset  # libera
 - **Base de datos**: PostgreSQL + Npgsql
 - **Resiliencia**: Polly (circuit breaker)
 - **Infraestructura**: Docker Compose
+
+## Rate Limiting
+
+El gateway aplica dos límites por IP:
+
+| Límite | Valor | Aplica a |
+|--------|-------|----------|
+| Burst | 10 req/s | Todos los endpoints |
+| Bookings | 5 req/min | POST /api/bookings |
+
+Cuando se supera el límite la respuesta es `429 Too Many Requests` con header
+`Retry-After: 60`.

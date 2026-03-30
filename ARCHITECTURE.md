@@ -183,3 +183,25 @@ con `http://localhost` y el gateway decide a dónde va cada petición.
 
 El gateway también es el lugar natural para añadir en el futuro:
 autenticación centralizada, rate limiting, logging de acceso, y SSL termination.
+
+## Rate Limiting
+
+### Implementado en el Gateway (YARP)
+El rate limiting está en el gateway porque es el punto de entrada único — así
+proteges todos los servicios con una sola configuración sin tocar cada servicio.
+
+**Dos niveles de protección:**
+
+1. **Burst limit (10 req/s por IP):** evita que un cliente sature el sistema
+   con un pico súbito de peticiones. Aunque tenga 60 peticiones/minuto
+   disponibles, no puede enviarlas todas en 1 segundo.
+
+2. **Bookings limit (5 req/min por IP):** el endpoint POST /bookings es el más
+   costoso — crea un mensaje en RabbitMQ, el worker consulta proveedores y
+   guarda en PostgreSQL. Limitamos a 5 por minuto para protegerlo.
+
+**Respuesta al superar el límite:** HTTP 429 con header `Retry-After: 60`
+indicando al cliente cuándo puede volver a intentarlo.
+
+**Particionado por IP:** cada IP tiene su propio contador independiente.
+Un cliente abusivo no afecta a los demás.
