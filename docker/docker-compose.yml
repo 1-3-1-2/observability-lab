@@ -1,4 +1,15 @@
 services:
+  gateway:
+    build:
+      context: ../src/GatewayService
+    ports:
+      - "80:8080"
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+    depends_on:
+      - apiservice
+      - providerservice
+
   apiservice:
     build:
       context: ../src/ApiService
@@ -91,12 +102,12 @@ services:
   traffic:
     image: alpine/curl
     depends_on:
-      - apiservice
+      - gateway
     entrypoint: sh -c "while true; do
-      curl -s http://apiservice:8080/fast > /dev/null;
-      curl -s http://apiservice:8080/slow > /dev/null;
-      curl -s http://apiservice:8080/error > /dev/null;
-      curl -s http://apiservice:8080/packages > /dev/null;
+      curl -s http://gateway:8080/api/fast > /dev/null;
+      curl -s http://gateway:8080/api/slow > /dev/null;
+      curl -s http://gateway:8080/api/error > /dev/null;
+      curl -s 'http://gateway:8080/api/packages?destination=Mallorca' > /dev/null;
       sleep 2;
       done"
 
