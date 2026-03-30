@@ -163,3 +163,111 @@ curl http://localhost/api/fast -H "Authorization: Bearer $TOKEN"
 |---------|-----------|-----|
 | user | user123 | user |
 | admin | admin123 | admin |
+
+## Kubernetes (minikube)
+
+### Requisitos adicionales
+- minikube
+- kubectl
+
+### Arrancar el clúster
+```bash
+minikube start --driver=docker --memory=4096 --cpus=2
+```
+
+### Cargar imágenes en minikube
+```bash
+cd docker && docker compose build
+minikube image load docker-apiservice:latest
+minikube image load docker-providerservice:latest
+minikube image load docker-workerservice:latest
+minikube image load docker-gateway:latest
+```
+
+### Crear secrets y configmap
+```bash
+kubectl create secret generic observability-secrets \
+  --from-literal=postgres-password=admin \
+  --from-literal=rabbitmq-password=admin \
+  --from-literal=jwt-secret=observability-lab-secret-key-2026
+
+kubectl create configmap observability-config \
+  --from-literal=postgres-host=postgres \
+  --from-literal=postgres-db=bookings \
+  --from-literal=postgres-user=admin \
+  --from-literal=rabbitmq-host=rabbitmq \
+  --from-literal=redis-host=redis
+```
+
+### Desplegar todos los servicios
+```bash
+kubectl apply -f k8s/
+```
+
+### Acceder al gateway
+```bash
+minikube service gateway --url
+```
+
+### Comandos útiles
+```bash
+kubectl get pods                          # ver todos los pods
+kubectl get services                      # ver todos los servicios
+kubectl logs <pod-name>                   # logs de un pod
+kubectl scale deployment <name> --replicas=3  # escalar
+kubectl rollout restart deployment <name>     # reiniciar deployment
+```
+
+## Kubernetes (minikube)
+
+### Requisitos adicionales
+- minikube
+- kubectl
+
+### Arrancar el clúster
+```bash
+minikube start --driver=docker --memory=4096 --cpus=2
+```
+
+### Cargar imágenes en minikube
+```bash
+cd docker && docker compose build
+minikube image load docker-apiservice:latest
+minikube image load docker-providerservice:latest
+minikube image load docker-workerservice:latest
+minikube image load docker-gateway:latest
+```
+
+### Crear secrets y configmap
+```bash
+kubectl create secret generic observability-secrets \
+  --from-literal=postgres-password=admin \
+  --from-literal=rabbitmq-password=admin \
+  --from-literal=jwt-secret=observability-lab-secret-key-2026
+
+kubectl create configmap observability-config \
+  --from-literal=postgres-host=postgres \
+  --from-literal=postgres-db=bookings \
+  --from-literal=postgres-user=admin \
+  --from-literal=rabbitmq-host=rabbitmq \
+  --from-literal=redis-host=redis
+```
+
+### Desplegar todos los servicios
+```bash
+kubectl apply -f k8s/
+```
+
+### Acceder al gateway
+```bash
+minikube service gateway --url
+```
+
+### Comandos útiles
+```bash
+kubectl get pods                          # ver todos los pods
+kubectl get services                      # ver todos los servicios
+kubectl logs <pod-name>                   # logs de un pod
+kubectl scale deployment <name> --replicas=3  # escalar
+kubectl rollout restart deployment <name>     # reiniciar deployment
+```

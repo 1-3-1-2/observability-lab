@@ -236,3 +236,32 @@ petición sin validar el token de nuevo.
 **Nota de producción:** la clave secreta debe estar en variables de entorno
 o un vault (HashiCorp Vault, Azure Key Vault). Los usuarios deben estar en
 BD con passwords hasheados con bcrypt.
+
+## Kubernetes
+
+### Por qué Kubernetes
+Docker Compose es para desarrollo local — un solo nodo, sin recuperación automática,
+sin escalado, sin gestión de configuración. Kubernetes es para producción.
+
+**Ventajas que ya hemos visto en práctica:**
+- Auto-recuperación: si un pod cae, Kubernetes crea uno nuevo automáticamente
+- Escalado horizontal: `kubectl scale deployment providerservice --replicas=3`
+- Service discovery: los pods se encuentran por nombre (providerservice, rabbitmq...)
+- Gestión de configuración: ConfigMaps para config, Secrets para credenciales
+
+**Recursos desplegados:**
+- Deployment — gestiona réplicas de cada servicio
+- Service — expone pods en la red interna (ClusterIP) o externa (NodePort)
+- PersistentVolumeClaim — almacenamiento que sobrevive al pod (PostgreSQL, RabbitMQ, Redis)
+- ConfigMap — configuración no sensible (hosts, nombres de BD)
+- Secret — credenciales (passwords, JWT secret)
+
+**Separación de responsabilidades:**
+- ConfigMap: postgres-host, postgres-db, rabbitmq-host, redis-host
+- Secret: postgres-password, rabbitmq-password, jwt-secret
+- Los secrets NUNCA van en git — solo la plantilla con valores CHANGE_ME
+
+**Manifiestos en** `k8s/`:
+- providerservice.yml, apiservice.yml, workerservice.yml, gateway.yml
+- postgres.yml, rabbitmq.yml, redis.yml
+- configmap.yml, secrets.yml (plantilla)
