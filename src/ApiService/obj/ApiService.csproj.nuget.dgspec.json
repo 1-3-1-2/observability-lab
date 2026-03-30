@@ -72,6 +72,10 @@
               "target": "Package",
               "version": "[7.2.1, )"
             },
+            "StackExchange.Redis": {
+              "target": "Package",
+              "version": "[2.12.8, )"
+            },
             "prometheus-net.AspNetCore": {
               "target": "Package",
               "version": "[8.2.1, )"

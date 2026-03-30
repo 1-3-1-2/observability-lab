@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "351A9dLIjCQ=",
+  "dgSpecHash": "J3T8bO5j/6o=",
   "success": true,
   "projectFilePath": "/home/retro1312/observability-lab/src/ApiService/ApiService.csproj",
   "expectedPackageFiles": [
@@ -30,10 +30,13 @@
     "/home/retro1312/.nuget/packages/opentelemetry.extensions.hosting/1.15.1/opentelemetry.extensions.hosting.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.instrumentation.aspnetcore/1.15.1/opentelemetry.instrumentation.aspnetcore.1.15.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/opentelemetry.instrumentation.http/1.15.0/opentelemetry.instrumentation.http.1.15.0.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/pipelines.sockets.unofficial/2.2.8/pipelines.sockets.unofficial.2.2.8.nupkg.sha512",
     "/home/retro1312/.nuget/packages/prometheus-net/8.2.1/prometheus-net.8.2.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/prometheus-net.aspnetcore/8.2.1/prometheus-net.aspnetcore.8.2.1.nupkg.sha512",
     "/home/retro1312/.nuget/packages/rabbitmq.client/7.2.1/rabbitmq.client.7.2.1.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/stackexchange.redis/2.12.8/stackexchange.redis.2.12.8.nupkg.sha512",
     "/home/retro1312/.nuget/packages/system.diagnostics.diagnosticsource/10.0.0/system.diagnostics.diagnosticsource.10.0.0.nupkg.sha512",
+    "/home/retro1312/.nuget/packages/system.io.hashing/10.0.2/system.io.hashing.10.0.2.nupkg.sha512",
     "/home/retro1312/.nuget/packages/system.io.pipelines/8.0.0/system.io.pipelines.8.0.0.nupkg.sha512",
     "/home/retro1312/.nuget/packages/system.threading.ratelimiting/8.0.0/system.threading.ratelimiting.8.0.0.nupkg.sha512"
   ],

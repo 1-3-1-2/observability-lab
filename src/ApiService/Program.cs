@@ -5,6 +5,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using Npgsql;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -29,6 +30,20 @@ app.MapControllers();
 var leak = new List<byte[]>();
 var pgConnection = "Host=postgres;Database=bookings;Username=admin;Password=admin";
 
+// Conexión a Redis
+IDatabase? redisDb = null;
+try
+{
+    var redis = await ConnectionMultiplexer.ConnectAsync("redis:6379");
+    redisDb = redis.GetDatabase();
+    app.Logger.LogInformation("Conectado a Redis");
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning("No se pudo conectar a Redis: {Error}", ex.Message);
+}
+
+// Conexión a RabbitMQ con reintentos
 IConnection? rabbitConnection = null;
 IChannel? rabbitChannel = null;
 
@@ -45,24 +60,83 @@ for (int attempt = 1; attempt <= 10; attempt++)
     }
     catch (Exception ex)
     {
-        app.Logger.LogWarning("Intento {Attempt}/10 fallido: {Error}. Reintentando en 5s...", attempt, ex.Message);
+        app.Logger.LogWarning("RabbitMQ intento {Attempt}/10: {Error}", attempt, ex.Message);
         await Task.Delay(5000);
     }
 }
 
-app.MapGet("/fast", () => Results.Ok(new { message = "respuesta rapida", ms = 10 }));
-app.MapGet("/slow", async () => { await Task.Delay(Random.Shared.Next(200, 800)); return Results.Ok(new { message = "respuesta lenta" }); });
-app.MapGet("/error", () => Random.Shared.Next(0, 2) == 0 ? Results.Problem("error aleatorio") : Results.Ok(new { message = "esta vez no fallo" }));
+// Contadores de caché para métricas
+var cacheHits = Metrics.CreateCounter("cache_hits_total", "Número de cache hits", "endpoint");
+var cacheMisses = Metrics.CreateCounter("cache_misses_total", "Número de cache misses", "endpoint");
 
-app.MapGet("/packages", async (IHttpClientFactory factory) => {
+app.MapGet("/fast", () => Results.Ok(new { message = "respuesta rapida", ms = 10 }));
+
+app.MapGet("/slow", async () => {
+    await Task.Delay(Random.Shared.Next(200, 800));
+    return Results.Ok(new { message = "respuesta lenta" });
+});
+
+app.MapGet("/error", () =>
+    Random.Shared.Next(0, 2) == 0
+        ? Results.Problem("error aleatorio")
+        : Results.Ok(new { message = "esta vez no fallo" }));
+
+// Endpoint con caché — la clave incluye el destino para cachear por ruta
+app.MapGet("/packages", async (IHttpClientFactory factory, string? destination) =>
+{
+    destination ??= "default";
+    var cacheKey = $"packages:{destination}";
+    const int cacheTtlSeconds = 30;
+
+    // Intentamos obtener la respuesta de Redis
+    if (redisDb != null)
+    {
+        var cached = await redisDb.StringGetAsync(cacheKey);
+        if (cached.HasValue)
+        {
+            cacheHits.WithLabels("/packages").Inc();
+            app.Logger.LogInformation("Cache HIT para destino {Destination}", destination);
+
+            return Results.Json(new
+            {
+                source = "cache",
+                destination,
+                cached_at = DateTime.UtcNow,
+                data = JsonSerializer.Deserialize<object>(cached.ToString())
+            });
+        }
+        cacheMisses.WithLabels("/packages").Inc();
+        app.Logger.LogInformation("Cache MISS para destino {Destination} — consultando proveedores", destination);
+    }
+
+    // Cache miss — consultamos los proveedores en paralelo
     var client = factory.CreateClient();
     var fastTask = client.GetStringAsync("http://providerservice:8080/availability");
     var slowTask = client.GetStringAsync("http://providerservice:8080/availability/slow");
     await Task.WhenAll(fastTask, slowTask);
-    return Results.Json(new {
-        message = "busqueda completada en paralelo",
+
+    var result = new
+    {
         fast_provider = JsonSerializer.Deserialize<object>(fastTask.Result),
         slow_provider = JsonSerializer.Deserialize<object>(slowTask.Result)
+    };
+
+    // Guardamos en Redis con TTL de 30 segundos
+    if (redisDb != null)
+    {
+        await redisDb.StringSetAsync(
+            cacheKey,
+            JsonSerializer.Serialize(result),
+            TimeSpan.FromSeconds(cacheTtlSeconds)
+        );
+        app.Logger.LogInformation("Resultado guardado en cache para {Destination} ({Ttl}s TTL)", destination, cacheTtlSeconds);
+    }
+
+    return Results.Json(new
+    {
+        source = "providers",
+        destination,
+        data = result
     });
 });
 
@@ -72,8 +146,6 @@ app.MapPost("/bookings", async (BookingRequest request) =>
 
     var bookingId = Guid.NewGuid().ToString()[..8];
     var booking = request with { BookingId = bookingId };
-
-    // Publicamos usando el MessageEnvelope con RetryCount = 0
     var envelope = new MessageEnvelope(booking, 0);
     var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(envelope));
 
@@ -92,11 +164,19 @@ app.MapGet("/bookings/{id}", async (string id) => {
     {
         await using var conn = new NpgsqlConnection(pgConnection);
         await conn.OpenAsync();
-        await using var cmd = new NpgsqlCommand("SELECT id, destination, passengers, status, result, created_at FROM bookings WHERE id = @id", conn);
+        await using var cmd = new NpgsqlCommand(
+            "SELECT id, destination, passengers, status, result, created_at FROM bookings WHERE id = @id", conn);
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync();
         if (!await reader.ReadAsync()) return Results.NotFound(new { message = $"Booking {id} no encontrado" });
-        return Results.Ok(new { booking_id = reader.GetString(0), destination = reader.GetString(1), passengers = reader.GetInt32(2), status = reader.GetString(3), result = reader.IsDBNull(4) ? null : reader.GetString(4), created_at = reader.GetDateTime(5) });
+        return Results.Ok(new {
+            booking_id = reader.GetString(0),
+            destination = reader.GetString(1),
+            passengers = reader.GetInt32(2),
+            status = reader.GetString(3),
+            result = reader.IsDBNull(4) ? null : reader.GetString(4),
+            created_at = reader.GetDateTime(5)
+        });
     }
     catch (Exception ex) { return Results.Problem($"Error: {ex.Message}"); }
 });
@@ -106,11 +186,18 @@ app.MapGet("/bookings", async () => {
     {
         await using var conn = new NpgsqlConnection(pgConnection);
         await conn.OpenAsync();
-        await using var cmd = new NpgsqlCommand("SELECT id, destination, passengers, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 20", conn);
+        await using var cmd = new NpgsqlCommand(
+            "SELECT id, destination, passengers, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 20", conn);
         await using var reader = await cmd.ExecuteReaderAsync();
         var bookings = new List<object>();
         while (await reader.ReadAsync())
-            bookings.Add(new { booking_id = reader.GetString(0), destination = reader.GetString(1), passengers = reader.GetInt32(2), status = reader.GetString(3), created_at = reader.GetDateTime(4) });
+            bookings.Add(new {
+                booking_id = reader.GetString(0),
+                destination = reader.GetString(1),
+                passengers = reader.GetInt32(2),
+                status = reader.GetString(3),
+                created_at = reader.GetDateTime(4)
+            });
         return Results.Ok(bookings);
     }
     catch (Exception ex) { return Results.Problem($"Error: {ex.Message}"); }
