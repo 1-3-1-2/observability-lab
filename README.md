@@ -137,3 +137,29 @@ El gateway aplica dos límites por IP:
 
 Cuando se supera el límite la respuesta es `429 Too Many Requests` con header
 `Retry-After: 60`.
+
+## Autenticación
+
+Todos los endpoints del gateway requieren un token JWT.
+
+### Obtener token
+```bash
+curl -X POST http://localhost/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"user123"}'
+```
+
+### Usar token
+```bash
+TOKEN=$(curl -s -X POST http://localhost/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"user123"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+curl http://localhost/api/fast -H "Authorization: Bearer $TOKEN"
+```
+
+### Usuarios disponibles
+| Usuario | Contraseña | Rol |
+|---------|-----------|-----|
+| user | user123 | user |
+| admin | admin123 | admin |

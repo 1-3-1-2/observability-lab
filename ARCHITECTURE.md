@@ -205,3 +205,34 @@ indicando al cliente cuándo puede volver a intentarlo.
 
 **Particionado por IP:** cada IP tiene su propio contador independiente.
 Un cliente abusivo no afecta a los demás.
+
+## Autenticación
+
+### JWT en el Gateway
+Implementamos autenticación JWT en el gateway porque es el punto de entrada
+único — así todos los servicios quedan protegidos sin tocar su código.
+
+**Flujo:**
+1. Cliente hace POST /auth/login con usuario y contraseña
+2. Gateway devuelve un JWT firmado con HMAC-SHA256 (válido 1 hora)
+3. Cliente incluye el token en cada petición: `Authorization: Bearer <token>`
+4. Gateway valida la firma, expiración e issuer antes de dejar pasar la petición
+5. Si el token es inválido o no existe → 401 Unauthorized
+
+**Claims del token:**
+- `name` — nombre del usuario
+- `role` — rol (admin/user)
+- `jti` — ID único del token (para revocación futura)
+- `iat` — timestamp de creación
+
+**El gateway propaga el usuario a los servicios downstream** via headers
+`X-User` y `X-User-Role` — así los servicios pueden saber quién hace la
+petición sin validar el token de nuevo.
+
+**Usuarios de ejemplo:**
+- `user / user123` — rol user
+- `admin / admin123` — rol admin
+
+**Nota de producción:** la clave secreta debe estar en variables de entorno
+o un vault (HashiCorp Vault, Azure Key Vault). Los usuarios deben estar en
+BD con passwords hasheados con bcrypt.
